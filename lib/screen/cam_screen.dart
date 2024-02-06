@@ -18,6 +18,26 @@ class _CamScreenState extends State<CamScreen> {
   int? otherUid;
 
   @override
+
+  void dispose() async {
+
+    if (engine != null) {
+
+      await engine!.leaveChannel(
+
+        options: LeaveChannelOptions(),
+
+      );
+
+      engine!.release();
+
+    }
+
+    super.dispose();
+
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -43,9 +63,45 @@ class _CamScreenState extends State<CamScreen> {
           }
 
           return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: renderMainView(),
+                child: Stack(
+                  children: [
+                    renderMainView(),
+                    Align(
+                      alignment: Alignment.topLeft,
+                      child: Container(
+                        color: Colors.grey,
+                        height: 160,
+                        width: 120,
+                        child: renderSubView(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: ElevatedButton(
+                  onPressed: () async {
+                    if (engine != null) {
+                      await engine!.leaveChannel();
+                      engine = null;
+                    }
+
+                    Navigator.of(context).pop();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                  ),
+                  child: Text(
+                    '채널 나가기',
+                    style: TextStyle(
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               ),
             ],
           );
@@ -69,7 +125,21 @@ class _CamScreenState extends State<CamScreen> {
     }
   }
 
-  renderSubView() {}
+  renderSubView() {
+    if (otherUid == null) {
+      return Center(
+        child: Text('채널에 유저가 없습니다.'),
+      );
+    } else {
+      return AgoraVideoView(
+        controller: VideoViewController.remote(
+          rtcEngine: engine!,
+          canvas: VideoCanvas(uid: otherUid),
+          connection: RtcConnection(channelId: CHANNEL_NAME),
+        ),
+      );
+    }
+  }
 
   Future<bool> init() async {
     final resp = await [Permission.camera, Permission.microphone].request();
@@ -102,7 +172,7 @@ class _CamScreenState extends State<CamScreen> {
           onLeaveChannel: (RtcConnection connection, RtcStats stats) {
             print('채널 퇴장');
             setState(() {
-              uid == null;
+              uid = null;
             });
           },
           onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
@@ -117,7 +187,7 @@ class _CamScreenState extends State<CamScreen> {
             print('상대가 채널에서 나갔습니다. otherUid : ${remoteUid}');
 
             setState(() {
-              otherUid == null;
+              otherUid = null;
             });
           },
         ),
